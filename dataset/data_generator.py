@@ -8,7 +8,7 @@ import pickle
 
 def generator(seed=0, traj_length=100, repeat_num=1, scale=.0, dataset_type="MT10"):
     np.set_printoptions(suppress=True)
-    # random.seed(seed)
+    np.random.seed(seed)
     ml = eval("metaworld." + dataset_type)()
     env_list = list(ml.train_classes.keys())
     # env_list = ['peg-insert-side-v2']
