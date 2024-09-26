@@ -38,7 +38,7 @@ class TaskDataset(Dataset):
         self.obs_normalization = 0
         self.batch_size = 128
         self.dataset_size = 0
-        self.load(file='../datasets/MT10_rn5_sc0.5.pkl')
+        self.load(file='../datasets/MT10_rn1_sc0.pkl')
 
     def load(self, file):
         raw_data = read_pickle(file)

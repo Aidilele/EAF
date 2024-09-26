@@ -80,8 +80,8 @@ if __name__ == "__main__":
     save_path = '../datasets/'
     seed = 45
     traj_length = 100
-    repeat_num = 5
-    scale = 0.5
+    repeat_num = 1
+    scale = 0
     dataset_type = 'MT10'
     raw_data = generator(seed=seed, traj_length=traj_length, repeat_num=repeat_num, scale=scale,
                          dataset_type=dataset_type)
