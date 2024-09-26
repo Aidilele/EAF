@@ -20,6 +20,7 @@ class ConditionModel:
         self.task_optim_scheduler = StepLR(self.task_emb_optimizer, step_size=50, gamma=0.99)
 
     def train(self, ep_num=2000):
+        flag = -1
         for ep_index in range(ep_num):
             batch_sample = self.dataset.sample()
             traj_max = batch_sample[0].to(self.device)
@@ -29,39 +30,44 @@ class ConditionModel:
             traj_min_mask = batch_sample[4].to(self.device)
             obs_traj_max = traj_max[:, :, :39]
             obs_traj_min = traj_min[:, :, :39]
-            u_p, lv_p = self.trajectory_embedding(obs_traj_max, traj_max_mask)
-            u_m, lv_m = self.trajectory_embedding(obs_traj_min, traj_min_mask)
+            u_p, lv_p = self.trajectory_embedding(obs_traj_max, )
+            u_m, lv_m = self.trajectory_embedding(obs_traj_min, )
             u_t, lv_t = self.task_embedding(task)
+            if flag > 0:
+                kl_p_t = norm_kl_div(u_p, lv_p, u_t.detach(), lv_t.detach())
+                kl_m_t = norm_kl_div(u_m, lv_m, u_t.detach(), lv_t.detach())
+                d_p_t = euc_distance(u_p, u_t.detach())
+                d_m_t = euc_distance(u_m, u_t.detach())
+                d_loss = d_p_t - d_m_t + 1e-6
+                d_loss = torch.max(d_loss, torch.zeros_like(d_loss))
+                loss_traj_emb = (kl_p_t + 1 / kl_m_t).mean() + d_loss.mean()
+                self.traj_emb_optimizer.zero_grad()
+                loss_traj_emb.backward()
+                torch.nn.utils.clip_grad_norm_(self.trajectory_embedding.parameters(), max_norm=1.0)
+                self.traj_emb_optimizer.step()
+                self.traj_optim_scheduler.step()
+                print('ep:', ep_index, '  loss:', loss_traj_emb)
 
-            kl_p_t = norm_kl_div(u_p, lv_p, u_t.detach(), lv_t.detach())
-            kl_m_t = norm_kl_div(u_m, lv_m, u_t.detach(), lv_t.detach())
-            d_p_t = euc_distance(u_p, u_t.detach())
-            d_m_t = euc_distance(u_m, u_t.detach())
-            d_loss = d_p_t - d_m_t + 1e-6
-            d_loss = torch.max(d_loss, torch.zeros_like(d_loss))
-            loss_traj_emb = (kl_p_t + 1 / kl_m_t).mean() + d_loss.mean()
-            self.traj_emb_optimizer.zero_grad()
-            loss_traj_emb.backward()
-            torch.nn.utils.clip_grad_norm_(self.trajectory_embedding.parameters(), max_norm=1.0)
-            self.traj_emb_optimizer.step()
-            # self.traj_optim_scheduler.step()
+            else:
+                kl_p_t = norm_kl_div(u_p.detach(), lv_p.detach(), u_t, lv_t)
+                # kl_m_t = norm_kl_div(u_m.detach(), lv_m.detach(), u_t, lv_t)
+                # d_p_t = euc_distance(u_p.detach(), u_t)
+                # d_m_t = euc_distance(u_m.detach(), u_t)
+                # d_loss = d_p_t-d_m_t + 1e-6
+                # d_loss = torch.max(d_loss, torch.zeros_like(d_loss))
+                loss_task_emb = kl_p_t.mean()
+                # loss_task_emb = torch.nn.functional.mse_loss(u_t, u_p.detach())
+                self.task_emb_optimizer.zero_grad()
+                loss_task_emb.backward()
+                torch.nn.utils.clip_grad_norm_(self.task_embedding.parameters(), max_norm=1.0)
+                self.task_emb_optimizer.step()
+                # self.task_optim_scheduler.step()
 
-            kl_p_t = norm_kl_div(u_p.detach(), lv_p.detach(), u_t, lv_t)
-            kl_m_t = norm_kl_div(u_m.detach(), lv_m.detach(), u_t, lv_t)
-            d_p_t = euc_distance(u_p.detach(), u_t)
-            d_m_t = euc_distance(u_m.detach(), u_t)
-            d_loss = d_p_t - d_m_t + 1e-6
-            d_loss = torch.max(d_loss, torch.zeros_like(d_loss))
-            loss_task_emb = (kl_p_t + 1 / kl_m_t).mean() + d_loss.mean()
-            self.task_emb_optimizer.zero_grad()
-            loss_task_emb.backward()
-            torch.nn.utils.clip_grad_norm_(self.task_embedding.parameters(), max_norm=1.0)
-            self.task_emb_optimizer.step()
-            # self.task_optim_scheduler.step()
-
-            print('ep:', ep_index, '  loss:', loss_traj_emb)
+                print('ep:', ep_index, '  loss:', loss_task_emb)
             if ep_index % self.save_freq == 0:
                 self.save(ep_index)
+            if ep_index % 500 == 0:
+                flag *= -1
         self.save(ep_index)
         return 0
 
