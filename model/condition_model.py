@@ -25,34 +25,25 @@ class ConditionModel:
             batch_sample = self.dataset.sample()
             traj_max = batch_sample[0].to(self.device)
             traj_min = batch_sample[1].to(self.device)
-            traj_mid = batch_sample[2].to(self.device)
-            traj_max_mask = batch_sample[3].to(self.device)
-            traj_min_mask = batch_sample[4].to(self.device)
-            traj_mid_mask = batch_sample[5].to(self.device)
+            traj_max_mask = batch_sample[2].to(self.device)
+            traj_min_mask = batch_sample[3].to(self.device)
             task = batch_sample[-1].to(self.device)
             obs_traj_max = traj_max[:, :, :39]
             obs_traj_min = traj_min[:, :, :39]
-            obs_traj_mid = traj_mid[:, :, :39]
-            obs = torch.cat((obs_traj_mid, obs_traj_min), dim=0)
 
             u_p, lv_p = self.trajectory_embedding(obs_traj_max, traj_max_mask)
             u_m, lv_m = self.trajectory_embedding(obs_traj_min, traj_min_mask)
-            u_d, lv_d = self.trajectory_embedding(obs_traj_mid, traj_mid_mask)
             u_t, lv_t = self.task_embedding(task)
-
-            us, lvs = self.trajectory_embedding(obs)
-            kls = norm_kl_div(us, lvs, u_t, lv_t)
 
             kl_p_t = norm_kl_div(u_p, lv_p, u_t.detach(), lv_t.detach())
             kl_m_t = norm_kl_div(u_m, lv_m, u_t.detach(), lv_t.detach())
-            kl_d_t = norm_kl_div(u_d, lv_d, u_t.detach(), lv_t.detach())
-            kl_m = (kl_m_t + kl_d_t) * 0.5
+
+            kl_m = (kl_m_t + kl_m_t) * 0.5
 
             d_p_t = euc_distance(u_p, u_t.detach())
             d_m_t = euc_distance(u_m, u_t.detach())
-            d_d_t = euc_distance(u_d, u_t.detach())
 
-            d_loss = d_p_t - (d_m_t + d_d_t) * 0.5 + 1e-6
+            d_loss = d_p_t - d_m_t + 1e-6
             d_loss = torch.max(d_loss, torch.zeros_like(d_loss))
             loss_traj_emb = (kl_p_t + 1 / kl_m).mean() + d_loss.mean()
             self.traj_emb_optimizer.zero_grad()
@@ -63,14 +54,13 @@ class ConditionModel:
 
             kl_p_t = norm_kl_div(u_p.detach(), lv_p.detach(), u_t, lv_t)
             kl_m_t = norm_kl_div(u_m.detach(), lv_m.detach(), u_t, lv_t)
-            kl_d_t = norm_kl_div(u_d.detach(), lv_d.detach(), u_t, lv_t)
-            kl_m = 0.5 * (kl_m_t + kl_d_t)
+
             d_p_t = euc_distance(u_p.detach(), u_t)
             d_m_t = euc_distance(u_m.detach(), u_t)
-            d_d_t = euc_distance(u_d.detach(), u_t)
-            d_loss = d_p_t - (d_m_t + d_d_t) * 0.5 + 1e-6
+
+            d_loss = d_p_t - d_m_t + 1e-6
             d_loss = torch.max(d_loss, torch.zeros_like(d_loss))
-            loss_task_emb = (kl_p_t + 1 / kl_m).mean() + d_loss.mean()
+            loss_task_emb = (kl_p_t + 1 / kl_m_t).mean() + d_loss.mean()
             self.task_emb_optimizer.zero_grad()
             loss_task_emb.backward()
             torch.nn.utils.clip_grad_norm_(self.task_embedding.parameters(), max_norm=1.0)
