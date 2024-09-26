@@ -53,7 +53,6 @@ class TaskDataset(Dataset):
             torch.from_numpy(obs_data.reshape(-1, obs_data.shape[-1])).to(torch.float32))
 
         traj_data = []
-        traj_aver = []
         traj_task = []
         traj_mask = []
         env_num = len(list(raw_data.keys()))
@@ -75,22 +74,22 @@ class TaskDataset(Dataset):
             traj_task.append(env_task_one_hot[env_sort_index])
 
         traj_data = np.concatenate(traj_data, 0)
-        # traj_aver = np.concatenate(traj_aver, 0)
         traj_mask = np.concatenate(traj_mask, 0)
         traj_task = np.concatenate(traj_task, 0)
         traj_data = torch.from_numpy(traj_data).to(torch.float32)
         self.normalization = GaussianNormalizer(traj_data)
         traj_data = self.normalization.normalize(traj_data)
         self.data['traj_data'] = traj_data
-        # self.data['traj_aver'] = torch.from_numpy(traj_aver).to(torch.float32)
         self.data['traj_mask'] = torch.from_numpy(traj_mask).to(torch.float32)
         self.data['traj_task'] = torch.from_numpy(traj_task).to(torch.float32)
 
-        data_max = []
-        data_min = []
-        data_max_mask = []
-        data_min_mask = []
-        data_task = []
+        for env_index in range(10):
+            start = env_index * 250
+            end = start + 250
+            same_env_index = torch.randint(low=start, high=end, size=(self.batch_size, self.tuple_size))
+            diff_env_index1 = torch.randint(low=0, high=start, size=(self.batch_size, self.tuple_size))
+            diff_env_index2 = torch.randint(low=end, high=self.dataset_size, size=(self.batch_size, self.tuple_size))
+
 
         self.dataset_size = len(self.data['traj_aver'])
 
