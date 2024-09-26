@@ -23,7 +23,7 @@ class TaskEmbedding(nn.Module):
 
 
 class TrajectoryEmbedding(nn.Module):
-    def __init__(self, x_dim, hidden_dim, output_dim, n_heads, layers, dropout=0.5):
+    def __init__(self, x_dim, hidden_dim, output_dim, n_heads, layers, dropout=0.0):
         super().__init__()
         self.mlp1 = nn.Linear(x_dim, hidden_dim)
         self.norm1 = nn.LayerNorm(hidden_dim, elementwise_affine=False, eps=1e-6)

@@ -35,8 +35,8 @@ class TaskDataset(Dataset):
         self.data_task = 0
         self.normalization = 0
         self.obs_normalization = 0
-        self.batch_size = 128
-        self.tuple_size = 5
+        self.batch_size = 32
+        self.tuple_size = 50
         self.dataset_size = 0
 
         self.load(file='../datasets/MT10_rn5_sc0.5.pkl')

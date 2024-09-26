@@ -15,4 +15,4 @@ def euc_distance(x, y):
     N = x.shape[0] // y.shape[0]
     y = y.repeat(N, 1)
     distances = torch.sqrt(torch.sum((x - y) ** 2, dim=1))
-    return distances.view(N, -1, x.shape[-1]).mean(dim=0)
+    return distances.view(N, -1).mean(dim=0)
