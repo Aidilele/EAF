@@ -15,8 +15,8 @@ class ConditionModel:
         self.dataset = TaskDataset(0)
         self.traj_emb_optimizer = torch.optim.Adam(self.trajectory_embedding.parameters(), lr=1e-3)
         self.task_emb_optimizer = torch.optim.Adam(self.task_embedding.parameters(), lr=1e-3)
-        self.traj_optim_scheduler = StepLR(self.traj_emb_optimizer, step_size=50, gamma=0.9)
-        self.task_optim_scheduler = StepLR(self.task_emb_optimizer, step_size=50, gamma=0.9)
+        self.traj_optim_scheduler = StepLR(self.traj_emb_optimizer, step_size=50, gamma=0.99)
+        self.task_optim_scheduler = StepLR(self.task_emb_optimizer, step_size=50, gamma=0.99)
 
     def train(self, ep_num=10000):
         for ep_index in range(ep_num):
@@ -45,7 +45,7 @@ class ConditionModel:
             loss_traj_emb.backward()
             torch.nn.utils.clip_grad_norm_(self.trajectory_embedding.parameters(), max_norm=1.0)
             self.traj_emb_optimizer.step()
-            # self.traj_optim_scheduler.step()
+            self.traj_optim_scheduler.step()
 
             kl_max_task = task_emb[1] - max_emb[1].detach() + 0.5 * (
                     (2 * max_emb[1].detach()).exp() + (max_emb[0].detach() - task_emb[0]) ** 2) / (
@@ -63,7 +63,7 @@ class ConditionModel:
             loss_task_emb.backward()
             torch.nn.utils.clip_grad_norm_(self.task_embedding.parameters(), max_norm=1.0)
             self.task_emb_optimizer.step()
-            # self.task_optim_scheduler.step()
+            self.task_optim_scheduler.step()
 
             print('ep:', ep_index, '  loss:', loss_traj_emb)
             if ep_index % self.save_freq == 0:
