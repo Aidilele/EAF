@@ -30,8 +30,8 @@ class ConditionModel:
             traj_min_mask = batch_sample[4].to(self.device)
             obs_traj_max = traj_max[:, :, :39]
             obs_traj_min = traj_min[:, :, :39]
-            u_p, lv_p = self.trajectory_embedding(obs_traj_max, )
-            u_m, lv_m = self.trajectory_embedding(obs_traj_min, )
+            u_p, lv_p = self.trajectory_embedding(obs_traj_max, traj_max_mask)
+            u_m, lv_m = self.trajectory_embedding(obs_traj_min, traj_min_mask)
             u_t, lv_t = self.task_embedding(task)
             if flag > 0:
                 kl_p_t = norm_kl_div(u_p, lv_p, u_t.detach(), lv_t.detach())

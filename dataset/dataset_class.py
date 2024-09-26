@@ -64,10 +64,12 @@ class TaskDataset(Dataset):
         self.normalization = GaussianNormalizer(data)
 
         data_max = []
+        data_mid = []
         data_min = []
         data_task = []
         data_traj_max_mask = []
         data_traj_min_mask = []
+        data_traj_mid_mask = []
 
         for env_index, env_name in enumerate(list(raw_data.keys())):
             shape = raw_data[env_name]['obs'].shape
@@ -92,29 +94,30 @@ class TaskDataset(Dataset):
                 data_min.append(raw_data[env_name]['data'][min_traj_index])
                 data_traj_max_mask.append(raw_data[env_name]['traj_mask'][max_traj_index])
                 data_traj_min_mask.append(raw_data[env_name]['traj_mask'][min_traj_index])
-
-                data_task.append(task_one_hot)
-                data_max.append(raw_data[env_name]['data'][traj1_index])
                 traj3_env = random.choice(list(raw_data.keys()))
                 traj3_index = random.randint(0, traj_num - 1)
-                data_min.append(raw_data[traj3_env]['data'][traj3_index])
-                data_traj_max_mask.append(raw_data[env_name]['traj_mask'][traj1_index])
-                data_traj_min_mask.append(raw_data[traj3_env]['traj_mask'][traj3_index])
+                data_mid.append(raw_data[traj3_env]['data'][traj3_index])
+                data_traj_mid_mask.append(raw_data[traj3_env]['traj_mask'][traj3_index])
+
         self.data['traj_max'] = self.normalization.normalize(torch.from_numpy(np.stack(data_max, 0)).to(torch.float32))
         self.data['traj_min'] = self.normalization.normalize(torch.from_numpy(np.stack(data_min, 0)).to(torch.float32))
+        self.data['traj_mid'] = self.normalization.normalize(torch.from_numpy(np.stack(data_mid, 0)).to(torch.float32))
         self.data['traj_max_mask'] = torch.from_numpy(np.stack(data_traj_max_mask, 0)).to(torch.float32)
         self.data['traj_min_mask'] = torch.from_numpy(np.stack(data_traj_min_mask, 0)).to(torch.float32)
+        self.data['traj_mid_mask'] = torch.from_numpy(np.stack(data_traj_mid_mask, 0)).to(torch.float32)
         self.data['traj_task'] = torch.from_numpy(np.stack(data_task, 0)).to(torch.float32)
         self.dataset_size = len(self.data['traj_task'])
 
     def sample(self):
         sample_index = torch.randint(low=0, high=self.dataset_size, size=(self.batch_size,))
         max_traj = self.data['traj_max'][sample_index]
-        min_traj = self.data['traj_max'][sample_index]
+        min_traj = self.data['traj_min'][sample_index]
+        mid_traj = self.data['traj_mid'][sample_index]
         max_traj_mask = self.data['traj_max_mask'][sample_index]
-        min_traj_mask = self.data['traj_max_mask'][sample_index]
+        min_traj_mask = self.data['traj_min_mask'][sample_index]
+        mid_traj_mask = self.data['traj_mid_mask'][sample_index]
         task = self.data['traj_task'][sample_index]
-        return max_traj, min_traj, task, max_traj_mask, min_traj_mask
+        return max_traj, min_traj, mid_traj, task, max_traj_mask, min_traj_mask, mid_traj_mask
 
 
 if __name__ == '__main__':
