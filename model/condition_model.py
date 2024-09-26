@@ -9,15 +9,15 @@ class ConditionModel:
 
     def __init__(self, config):
         self.device = torch.device("cuda:0")
-        self.save_freq = 500
+        self.save_freq = 200
         self.trajectory_embedding = TrajectoryEmbedding(39, 128, 64, 4, 2).to(self.device)
         self.task_embedding = TaskEmbedding(10, 128, 64).to(self.device)
 
         self.dataset = TaskDataset(0)
         self.traj_emb_optimizer = torch.optim.Adam(self.trajectory_embedding.parameters(), lr=1e-3)
         self.task_emb_optimizer = torch.optim.Adam(self.task_embedding.parameters(), lr=1e-3)
-        self.traj_optim_scheduler = StepLR(self.traj_emb_optimizer, step_size=50, gamma=0.99)
-        self.task_optim_scheduler = StepLR(self.task_emb_optimizer, step_size=50, gamma=0.99)
+        self.traj_optim_scheduler = StepLR(self.traj_emb_optimizer, step_size=50, gamma=0.9)
+        self.task_optim_scheduler = StepLR(self.task_emb_optimizer, step_size=50, gamma=0.9)
 
     def train(self, ep_num=2000):
 

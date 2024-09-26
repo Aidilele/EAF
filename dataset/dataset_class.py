@@ -36,7 +36,7 @@ class TaskDataset(Dataset):
         self.normalization = 0
         self.obs_normalization = 0
         self.batch_size = 128
-        self.tuple_size = 4
+        self.tuple_size = 12
         self.dataset_size = 0
 
         self.load(file='../datasets/MT10_rn5_sc0.5.pkl')
@@ -92,14 +92,18 @@ class TaskDataset(Dataset):
             start = env_index * 250
             end = start + 250
             same_env_index = torch.randint(low=start, high=end, size=(500, self.tuple_size)).sort().values
-            if env_index == 0:
-                diff_env_index = torch.randint(low=end, high=self.dataset_size, size=(500, self.tuple_size))
-            elif env_index == 9:
-                diff_env_index = torch.randint(low=0, high=start, size=(500, self.tuple_size))
-            else:
-                diff_env_index1 = torch.randint(low=0, high=start, size=(500, self.tuple_size // 2))
-                diff_env_index2 = torch.randint(low=end, high=self.dataset_size, size=(500, self.tuple_size // 2))
-                diff_env_index = torch.cat((diff_env_index1, diff_env_index2), dim=-1)
+
+            x = ([x for x in range(start)] + [x for x in range(end, self.dataset_size)]) * 500
+            diff_env_index = random.sample(x, 500 * self.tuple_size)
+            diff_env_index = torch.tensor(diff_env_index).view(500, -1)
+            # if env_index == 0:
+            #     diff_env_index = torch.randint(low=end, high=self.dataset_size, size=(500, self.tuple_size))
+            # elif env_index == 9:
+            #     diff_env_index = torch.randint(low=0, high=start, size=(500, self.tuple_size))
+            # else:
+            #     diff_env_index1 = torch.randint(low=0, high=start, size=(500, self.tuple_size // 2))
+            #     diff_env_index2 = torch.randint(low=end, high=self.dataset_size, size=(500, self.tuple_size // 2))
+            #     diff_env_index = torch.cat((diff_env_index1, diff_env_index2), dim=-1)
 
             traj_max_index = same_env_index[:, -1]
             traj_min_index = torch.cat((diff_env_index, same_env_index[:, :-1]), dim=-1)
@@ -123,9 +127,9 @@ class TaskDataset(Dataset):
     def sample(self):
         sample_index = torch.randint(low=0, high=5000, size=(self.batch_size,))
         traj_max = self.data['traj_max'][sample_index]
-        traj_min = self.data['traj_min'][sample_index]
+        traj_min = self.data['traj_min'][sample_index].view(-1, 100, 82)
         traj_max_mask = self.data['traj_max_mask'][sample_index]
-        traj_min_mask = self.data['traj_min_mask'][sample_index]
+        traj_min_mask = self.data['traj_min_mask'][sample_index].view(-1, 100)
         traj_task = self.data['traj_task'][sample_index]
         return traj_max, traj_min, traj_max_mask, traj_min_mask, traj_task
 
