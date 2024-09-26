@@ -59,37 +59,38 @@ class TaskDataset(Dataset):
         env_num = len(list(raw_data.keys()))
 
         for env_index, env_name in enumerate(list(raw_data.keys())):
-            traj_data.append(np.concatenate(
+            env_traj_data = np.concatenate(
                 [raw_data[env_name]['obs'],
                  raw_data[env_name]['next_obs'],
                  raw_data[env_name]['action'], ], -1
-            ))
-            traj_aver.append(raw_data[env_name]['info']['ave_reward'])
-            traj_mask.append(raw_data[env_name]['traj_mask'])
+            )
+            env_traj_aver = raw_data[env_name]['info']['ave_reward']
+            env_traj_mask = raw_data[env_name]['traj_mask']
             env_traj_num = len(raw_data[env_name]['info']['ave_reward'])
-            task_one_hot = np.zeros((env_traj_num, env_num))
-            task_one_hot[:, env_index] = 1
-            traj_task.append(task_one_hot)
+            env_task_one_hot = np.zeros((env_traj_num, env_num))
+            env_task_one_hot[:, env_index] = 1
+            env_sort_index = np.argsort(env_traj_aver)
+            traj_data.append(env_traj_data[env_sort_index])
+            traj_mask.append(env_traj_mask[env_sort_index])
+            traj_task.append(env_task_one_hot[env_sort_index])
 
         traj_data = np.concatenate(traj_data, 0)
-        traj_aver = np.concatenate(traj_aver, 0)
+        # traj_aver = np.concatenate(traj_aver, 0)
         traj_mask = np.concatenate(traj_mask, 0)
         traj_task = np.concatenate(traj_task, 0)
-
-        sort_index = np.argsort(traj_aver)
-        traj_data = traj_data[sort_index]
-        traj_aver = traj_aver[sort_index]
-        traj_mask = traj_mask[sort_index]
-        traj_task = traj_task[sort_index]
-
         traj_data = torch.from_numpy(traj_data).to(torch.float32)
         self.normalization = GaussianNormalizer(traj_data)
         traj_data = self.normalization.normalize(traj_data)
-
         self.data['traj_data'] = traj_data
-        self.data['traj_aver'] = torch.from_numpy(traj_aver).to(torch.float32)
+        # self.data['traj_aver'] = torch.from_numpy(traj_aver).to(torch.float32)
         self.data['traj_mask'] = torch.from_numpy(traj_mask).to(torch.float32)
         self.data['traj_task'] = torch.from_numpy(traj_task).to(torch.float32)
+
+        data_max = []
+        data_min = []
+        data_max_mask = []
+        data_min_mask = []
+        data_task = []
 
         self.dataset_size = len(self.data['traj_aver'])
 
