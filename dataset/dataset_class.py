@@ -117,7 +117,7 @@ class TaskDataset(Dataset):
         min_traj_mask = self.data['traj_min_mask'][sample_index]
         mid_traj_mask = self.data['traj_mid_mask'][sample_index]
         task = self.data['traj_task'][sample_index]
-        return max_traj, min_traj, mid_traj, task, max_traj_mask, min_traj_mask, mid_traj_mask
+        return max_traj, min_traj, mid_traj, max_traj_mask, min_traj_mask, mid_traj_mask, task
 
 
 if __name__ == '__main__':
