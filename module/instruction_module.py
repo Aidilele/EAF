@@ -39,24 +39,24 @@ class TrajectoryEmbedding(nn.Module):
         for i in range(layers):
             self.attn_module.append(attn_block)
 
-        self.attn = nn.MultiheadAttention(hidden_dim, n_heads, dropout, batch_first=True)
-        self.norm2 = nn.LayerNorm(hidden_dim, elementwise_affine=False, eps=1e-6)
-        self.mlp2 = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim * 2), nn.GELU(approximate="tanh"), nn.Dropout(dropout),
-            nn.Linear(hidden_dim * 2, hidden_dim))
+        # self.attn = nn.MultiheadAttention(hidden_dim, n_heads, dropout, batch_first=True)
+        # self.norm2 = nn.LayerNorm(hidden_dim, elementwise_affine=False, eps=1e-6)
+        # self.mlp2 = nn.Sequential(
+        #     nn.Linear(hidden_dim, hidden_dim * 2), nn.GELU(approximate="tanh"), nn.Dropout(dropout),
+        #     nn.Linear(hidden_dim * 2, hidden_dim))
 
         self.pos_emb = SinusoidalPosEmb(hidden_dim)
         self.pos_emb_cache = None
         self.mean = nn.Linear(hidden_dim, output_dim)
         self.log_var = nn.Linear(hidden_dim, output_dim)
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, traj_mask=None):
         if self.pos_emb_cache is None or self.pos_emb_cache.shape[0] != x.shape[1]:
             self.pos_emb_cache = self.pos_emb(torch.arange(x.shape[1], device=x.device))
         x = self.norm1(self.mlp1(x) + self.pos_emb_cache)
 
         for block in self.attn_module:
-            x = x + block[0](x, x, x)[0]
+            x = x + block[0](x, x, x, key_padding_mask=traj_mask)[0]
             x = (x + block[2](block[1](x)))
         x = x[:, -1, :]
         mean = self.mean(x)

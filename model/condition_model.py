@@ -9,7 +9,7 @@ class ConditionModel:
 
     def __init__(self, config):
         self.device = torch.device("cuda:0")
-        self.save_freq = 2000
+        self.save_freq = 500
         self.trajectory_embedding = TrajectoryEmbedding(39, 128, 64, 4, 2).to(self.device)
         self.task_embedding = TaskEmbedding(10, 128, 64).to(self.device)
 
@@ -19,16 +19,18 @@ class ConditionModel:
         self.traj_optim_scheduler = StepLR(self.traj_emb_optimizer, step_size=50, gamma=0.99)
         self.task_optim_scheduler = StepLR(self.task_emb_optimizer, step_size=50, gamma=0.99)
 
-    def train(self, ep_num=10000):
+    def train(self, ep_num=2000):
         for ep_index in range(ep_num):
             batch_sample = self.dataset.sample()
             traj_max = batch_sample[0].to(self.device)
             traj_min = batch_sample[1].to(self.device)
             task = batch_sample[2].to(self.device)
+            traj_max_mask = batch_sample[3].to(self.device)
+            traj_min_mask = batch_sample[4].to(self.device)
             obs_traj_max = traj_max[:, :, :39]
             obs_traj_min = traj_min[:, :, :39]
-            u_p, lv_p = self.trajectory_embedding(obs_traj_max)
-            u_m, lv_m = self.trajectory_embedding(obs_traj_min)
+            u_p, lv_p = self.trajectory_embedding(obs_traj_max, traj_max_mask)
+            u_m, lv_m = self.trajectory_embedding(obs_traj_min, traj_min_mask)
             u_t, lv_t = self.task_embedding(task)
 
             kl_p_t = norm_kl_div(u_p, lv_p, u_t.detach(), lv_t.detach())
