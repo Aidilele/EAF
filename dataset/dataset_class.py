@@ -10,11 +10,12 @@ class Dataset:
 
     def __init__(self):
         self.data = {}
+        self.raw_data = 0
 
     def sample(self):
         return 0
 
-    def load(self):
+    def load(self, file):
         return 0
 
 
@@ -24,11 +25,11 @@ class TaskDataset(Dataset):
         super().__init__()
         self.config = config
         self.data = {
-            'traj_max': 0,
-            'traj_min': 0,
-            'traj_max_mask': 0,
-            'traj_min_mask': 0,
-            'traj_task': 0
+            'traj_max': [],
+            'traj_min': [],
+            'traj_max_mask': [],
+            'traj_min_mask': [],
+            'traj_task': []
         }
         self.data_max = 0
         self.data_min = 0
@@ -47,7 +48,8 @@ class TaskDataset(Dataset):
         for env_name in list(raw_data.keys()):
             obs_data.append(raw_data[env_name]['obs'])
         obs_data = np.concatenate(obs_data, 0)
-        self.obs_normalization = GaussianNormalizer(torch.from_numpy(obs_data.reshape(-1, obs_data.shape[-1])).to(torch.float32))
+        self.obs_normalization = GaussianNormalizer(
+            torch.from_numpy(obs_data.reshape(-1, obs_data.shape[-1])).to(torch.float32))
 
         data = []
         for env_name in list(raw_data.keys()):
@@ -76,19 +78,20 @@ class TaskDataset(Dataset):
                 task_one_hot = np.zeros(len(list(raw_data.keys())))
                 task_one_hot[env_index] = 1
                 data_task.append(task_one_hot)
+                traj1_ave_reward = raw_data[env_name]['info']['ave_reward'][traj1_index]
+                traj2_ave_reward = raw_data[env_name]['info']['ave_reward'][traj2_index]
 
-                if raw_data[env_name]['info']['ave_reward'][traj1_index] >= raw_data[env_name]['info']['ave_reward'][
-                    traj1_index]:
-                    data_max.append(raw_data[env_name]['data'][traj1_index])
-                    data_min.append(raw_data[env_name]['data'][traj2_index])
-                    data_traj_max_mask.append(raw_data[env_name]['traj_mask'][traj1_index])
-                    data_traj_min_mask.append(raw_data[env_name]['traj_mask'][traj2_index])
-
+                if traj1_ave_reward >= traj2_ave_reward:
+                    max_traj_index = traj1_index
+                    min_traj_index = traj2_index
                 else:
-                    data_max.append(raw_data[env_name]['data'][traj2_index])
-                    data_min.append(raw_data[env_name]['data'][traj1_index])
-                    data_traj_max_mask.append(raw_data[env_name]['traj_mask'][traj2_index])
-                    data_traj_min_mask.append(raw_data[env_name]['traj_mask'][traj1_index])
+                    max_traj_index = traj2_index
+                    min_traj_index = traj1_index
+
+                data_max.append(raw_data[env_name]['data'][max_traj_index])
+                data_min.append(raw_data[env_name]['data'][min_traj_index])
+                data_traj_max_mask.append(raw_data[env_name]['traj_mask'][max_traj_index])
+                data_traj_min_mask.append(raw_data[env_name]['traj_mask'][min_traj_index])
 
                 data_task.append(task_one_hot)
                 data_max.append(raw_data[env_name]['data'][traj1_index])
@@ -111,7 +114,7 @@ class TaskDataset(Dataset):
         max_traj_mask = self.data['traj_max_mask'][sample_index]
         min_traj_mask = self.data['traj_max_mask'][sample_index]
         task = self.data_task[sample_index]
-        return max_traj, min_traj, task,
+        return max_traj, min_traj, task, max_traj_mask, min_traj_mask
 
 
 if __name__ == '__main__':
