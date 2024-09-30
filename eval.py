@@ -16,7 +16,7 @@ X = model.trajectory_embedding(model.dataset.data_min)
 # 使用TSNE将高维数据降维到二维
 tsne = TSNE(n_components=2, random_state=42)
 X_embedded = tsne.fit_transform(X)
-
+print('ok')
 # 绘制结果
 plt.figure(figsize=(8, 6))
 scatter = plt.scatter(X_embedded[:, 0], X_embedded[:, 1], cmap='viridis', s=100)
