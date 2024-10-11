@@ -12,9 +12,9 @@ class ConditionModel(nn.Module):
         super().__init__()
         self.device = torch.device("cuda:0")
         self.save_freq = 500
-        self.trajectory_embedding = TrajectoryEmbedding(39, 128, 64, 4, 2).to(self.device)
+        self.trajectory_embedding = TrajectoryEmbedding(17, 128, 64, 4, 2).to(self.device)
         # self.task_embedding = PreferenceEmbedding(10, 10,16,128, 64).to(self.device)
-        self.task_embedding = TaskEmbedding(10, 128, 64).to(self.device)
+        self.task_embedding = TaskEmbedding(1, 128, 64).to(self.device)
         self.dataset = TaskDataset(0)
         self.optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
         self.optim_scheduler = StepLR(self.optimizer, step_size=50, gamma=0.9)
@@ -28,8 +28,8 @@ class ConditionModel(nn.Module):
             traj_max_mask = batch_sample[2].to(self.device)
             traj_min_mask = batch_sample[3].to(self.device)
             task = batch_sample[-1].to(self.device)
-            obs_traj_max = traj_max[:, :, :39]
-            obs_traj_min = traj_min[:, :, :39]
+            obs_traj_max = traj_max[:, :, :17]
+            obs_traj_min = traj_min[:, :, :17]
 
             u_p, lv_p = self.trajectory_embedding(obs_traj_max, traj_max_mask)
             u_m, lv_m = self.trajectory_embedding(obs_traj_min, traj_min_mask)
@@ -88,8 +88,8 @@ class ConditionModel(nn.Module):
 
 if __name__ == '__main__':
     model = ConditionModel(0)
-    # model.train()
-    try:
-        model.train()
-    except:
-        model.save(0)
+    model.train()
+    # try:
+    #     model.train()
+    # except:
+    #     model.save(0)

@@ -3,7 +3,7 @@ from utils.normlization import *
 import numpy as np
 import torch
 
-from dataset.load_dataset import read_pickle
+from dataset.load_dataset import read_file
 
 
 class Dataset:
@@ -39,10 +39,12 @@ class TaskDataset(Dataset):
         self.tuple_size = 50
         self.dataset_size = 0
 
-        self.load(file='../datasets/MT10_rn5_sc0.5.pkl')
+        self.load(file='../datasets/walker2d_full_replay-v2.npz')
 
     def load(self, file):
-        raw_data = read_pickle(file)
+
+
+        raw_data = read_file(file)
         self.raw_data = raw_data
 
         obs_data = []
@@ -67,8 +69,11 @@ class TaskDataset(Dataset):
             traj_aver.append(raw_data[env_name]['info']['ave_reward'])
             traj_mask.append(raw_data[env_name]['traj_mask'])
             env_traj_num = len(raw_data[env_name]['info']['ave_reward'])
-            task_one_hot = np.zeros((env_traj_num, env_num))
-            task_one_hot[:, env_index] = 1
+            if 'traj_preference' in raw_data[env_name].keys():
+                task_one_hot = raw_data[env_name]['traj_preference']
+            else:
+                task_one_hot = np.zeros((env_traj_num, env_num))
+                task_one_hot[:, env_index] = 1
             traj_task.append(task_one_hot)
 
         traj_data = np.concatenate(traj_data, 0)

@@ -1,8 +1,8 @@
-import pickle
 import numpy as np
 
 
-def read_npz(flie_path):
+
+def npz2raw_data(flie_path):
     horizon = 100
     data = np.load(flie_path)
     raw_data = {}
@@ -22,22 +22,6 @@ def read_npz(flie_path):
     return raw_data
 
 
-def read_pickle(file_name="../datasets/MT10.pkl"):
-    with open(file_name, 'rb') as f:
-        data = pickle.load(f)
-    return data
-
-
-def read_file(file_name="../datasets/MT10.pkl"):
-    file_extension = file_name.split('.')[-1]
-    if file_extension == 'pkl':
-        data = read_pickle(file_name)
-    elif file_extension == 'npz':
-        data = read_npz(file_name)
-    else:
-        assert False,'Unsupported file type'
-    return data
-
-
-if __name__ == "__main__":
-    read_pickle()
+if __name__ == '__main__':
+    file_path = '../datasets/walker2d_full_replay-v2.npz'
+    npz2raw_data(file_path)
