@@ -1,25 +1,36 @@
 from torch import nn
 import torch
 from module.generiese_module import SinusoidalPosEmb
+import torch.nn.functional as F
 
 
 class PreferenceEmbedding(nn.Module):
-    def __init__(self, x_dim, hidden_dim, output_dim):
+    def __init__(self, x_dim, codebook_size, codebook_dim, hidden_dim, output_dim):
         super().__init__()
-        self.network = nn.Sequential(
+        self.vq = nn.Sequential(
             nn.Linear(x_dim, hidden_dim),
             nn.Tanh(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.Tanh(),
+            nn.Linear(hidden_dim, codebook_dim),
         )
-        self.mean = nn.Linear(hidden_dim, output_dim)
-        self.log_var = nn.Linear(hidden_dim, output_dim)
+        self.task_emb = TaskEmbedding(codebook_dim, hidden_dim, output_dim)
+        self.embeddings = nn.Embedding(codebook_size, codebook_dim)
+        self.embeddings.weight.data.uniform_(-1 / codebook_size, 1 / codebook_size)
+        self.commitment_cost = 1.0
 
     def forward(self, x):
-        x = self.network(x)
-        mean = self.mean(x)
-        log_var = self.log_var(x)
-        return mean, log_var
+        x = self.vq(x)
+        distances = (torch.sum(x ** 2, dim=1, keepdim=True)
+                     + torch.sum(self.embeddings.weight ** 2, dim=1)
+                     - 2 * torch.matmul(x, self.embeddings.weight.t()))
+
+        encoding_indices = torch.argmin(distances, dim=1).unsqueeze(1)
+        x_q = self.embeddings(encoding_indices).view(x.shape)
+        vq_loss = F.mse_loss(x_q.detach(), x)
+        commitment_loss = self.commitment_cost * F.mse_loss(x_q, x.detach())
+
+        x_q = x + (x_q - x).detach()  # 停止梯度，量化后的向量替换原始z
+        mean, log_var, _ = self.task_emb(x_q.detach())
+        return mean, log_var, vq_loss + commitment_loss
 
 
 class TaskEmbedding(nn.Module):
@@ -38,7 +49,7 @@ class TaskEmbedding(nn.Module):
         x = self.network(x)
         mean = self.mean(x)
         log_var = self.log_var(x)
-        return mean, log_var
+        return mean, log_var, 0
 
 
 class TrajectoryEmbedding(nn.Module):
@@ -93,17 +104,19 @@ if __name__ == "__main__":
     label_y = np.where(label_data == 1)[1]
     traj_model = TrajectoryEmbedding(39, 64, 32, 4, 2)
     task_model = TaskEmbedding(8, 64, 32)
-    # traj_emb = task_model(label_data).detach().numpy()
-    traj_emb = traj_model(traj_data).detach().numpy()
-    tsne = TSNE(n_components=2, random_state=42)
-    X_embedded = tsne.fit_transform(traj_emb)
-    print('ok')
+    pre_model = PreferenceEmbedding(8, 4, 16, 64, 32)
 
-    # 绘制结果
-    plt.figure(figsize=(8, 6))
-    scatter = plt.scatter(X_embedded[:, 0], X_embedded[:, 1], c=label_y, cmap='viridis', s=20)
-    plt.title('t-SNE Visualization of High Dimensional Data')
-    plt.xlabel('t-SNE Component 1')
-    plt.ylabel('t-SNE Component 2')
-    plt.colorbar(scatter, label='Class Label')
-    plt.show()
+    traj_emb = pre_model(label_data).detach().numpy()
+    # traj_emb = traj_model(traj_data).detach().numpy()
+    # tsne = TSNE(n_components=2, random_state=42)
+    # X_embedded = tsne.fit_transform(traj_emb)
+
+    # # 绘制结果
+    # plt.figure(figsize=(8, 6))
+    # scatter = plt.scatter(X_embedded[:, 0], X_embedded[:, 1], c=label_y, cmap='viridis', s=20)
+    # plt.title('t-SNE Visualization of High Dimensional Data')
+    # plt.xlabel('t-SNE Component 1')
+    # plt.ylabel('t-SNE Component 2')
+    # plt.colorbar(scatter, label='Class Label')
+    # plt.show()
+    print('ok')
