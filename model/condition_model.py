@@ -13,8 +13,8 @@ class ConditionModel(nn.Module):
         self.device = torch.device("cuda:0")
         self.save_freq = 500
         self.trajectory_embedding = TrajectoryEmbedding(39, 128, 64, 4, 2).to(self.device)
-        self.task_embedding = PreferenceEmbedding(10, 10,16,128, 64).to(self.device)
-        # self.task_embedding = TaskEmbedding(10, 128, 64).to(self.device)
+        # self.task_embedding = PreferenceEmbedding(10, 10,16,128, 64).to(self.device)
+        self.task_embedding = TaskEmbedding(10, 128, 64).to(self.device)
         self.dataset = TaskDataset(0)
         self.optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
         self.optim_scheduler = StepLR(self.optimizer, step_size=50, gamma=0.9)
@@ -38,14 +38,14 @@ class ConditionModel(nn.Module):
             kl_p_t = norm_kl_div(u_p, lv_p, u_t.detach(), lv_t.detach())
             kl_m_t = norm_kl_div(u_m, lv_m, u_t.detach(), lv_t.detach())
 
-            kl_m = (kl_m_t + kl_m_t) * 0.5
+            # kl_m = (kl_m_t + kl_m_t) * 0.5
 
             d_p_t = euc_distance(u_p, u_t.detach())
             d_m_t = euc_distance(u_m, u_t.detach())
 
             d_loss = d_p_t - d_m_t + 1e-6
             d_loss = torch.max(d_loss, torch.zeros_like(d_loss))
-            loss_traj_emb = (kl_p_t + 1 / kl_m).mean() + d_loss.mean()
+            loss_traj_emb = (kl_p_t + 1 / kl_m_t).mean() + d_loss.mean()
             # self.traj_emb_optimizer.zero_grad()
             # loss_traj_emb.backward()
             # torch.nn.utils.clip_grad_norm_(self.trajectory_embedding.parameters(), max_norm=1.0)
