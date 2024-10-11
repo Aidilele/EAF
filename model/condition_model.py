@@ -92,4 +92,7 @@ class ConditionModel:
 
 if __name__ == '__main__':
     model = ConditionModel(0)
-    model.train()
+    try:
+        model.train()
+    except:
+        model.save(0)
