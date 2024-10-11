@@ -9,7 +9,7 @@ class ConditionModel:
 
     def __init__(self, config):
         self.device = torch.device("cuda:0")
-        self.save_freq = 100
+        self.save_freq = 500
         self.trajectory_embedding = TrajectoryEmbedding(39, 128, 64, 4, 2).to(self.device)
         self.task_embedding = TaskEmbedding(10, 128, 64).to(self.device)
 

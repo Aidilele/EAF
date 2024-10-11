@@ -3,6 +3,25 @@ import torch
 from module.generiese_module import SinusoidalPosEmb
 
 
+class PreferenceEmbedding(nn.Module):
+    def __init__(self, x_dim, hidden_dim, output_dim):
+        super().__init__()
+        self.network = nn.Sequential(
+            nn.Linear(x_dim, hidden_dim),
+            nn.Tanh(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.Tanh(),
+        )
+        self.mean = nn.Linear(hidden_dim, output_dim)
+        self.log_var = nn.Linear(hidden_dim, output_dim)
+
+    def forward(self, x):
+        x = self.network(x)
+        mean = self.mean(x)
+        log_var = self.log_var(x)
+        return mean, log_var
+
+
 class TaskEmbedding(nn.Module):
     def __init__(self, x_dim, hidden_dim, output_dim):
         super().__init__()
