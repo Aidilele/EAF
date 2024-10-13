@@ -7,9 +7,13 @@ class GaussianNormalizer():
         self.std[torch.where(self.std == 0.)] = 1.
 
     def normalize(self, x: torch.Tensor):
+        self.mean = self.mean.to(x.device)
+        self.std = self.std.to(x.device)
         return (x - self.mean[None,]) / self.std[None,]
 
     def unnormalize(self, x: torch.Tensor):
+        self.mean = self.mean.to(x.device)
+        self.std = self.std.to(x.device)
         return x * self.std[None,] + self.mean[None,]
 
 

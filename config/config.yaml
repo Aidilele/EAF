@@ -1,0 +1,71 @@
+branch_name: 'code_book'
+
+seed: 0
+env_name: Walker2d-v2
+env_parallel_num: 8
+
+train_cfgs:
+  device: cuda:0
+  total_episode: 1000000
+  dataset: walker2d_full_replay-v2.npz
+  evaluate_episode: 0
+  evaluate_freq: 0
+  save_model_freq: 1000
+  lr: 1e-5
+  gradient_accumulate_every: 2
+  batch_size: 64
+
+
+algo_cfgs:
+  gamma: 0.99
+  obs_history_length: 1
+  horizon: 100
+  n_diffusion_steps: 50
+  noise_model: "DiT"
+
+logger_cfgs:
+  use_tensorboard: True
+  log_dir: "./runs"
+
+model_cfgs:
+  returns_condition: True
+  condition_model:
+    preference_dim: 1
+    hidden_dim: 128
+    output_dim: 16
+    n_heads: 4
+    layers: 2
+
+  diffuser_model:
+    train_only_inv: False
+    loss_weights: None
+    loss_discount: 1
+    predict_epsilon: True
+    hidden_dim: 128
+    clip_denoised: True
+    condition_guidance_w: 1.0
+
+  temporalU_model:
+    dim_mults: [ 1, 4, 8 ]
+    calc_energy: False
+    dim: 64
+    condition_dropout: 0.25
+
+  DiT:
+    hidden_dim: 128
+    cond_dim: 16
+    n_heads: 4
+    depth: 8
+    dropout: 0.0
+
+dataset_cfgs:
+  use_padding: True
+  obs_normalize: False
+  reward_normalize: False
+
+evaluate_cfgs:
+  multi_step_pred: 10
+  evaluate_model_index: 0
+
+
+

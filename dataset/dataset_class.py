@@ -2,7 +2,7 @@ import random
 from utils.normlization import *
 import numpy as np
 import torch
-
+import os
 from dataset.load_dataset import read_file
 
 
@@ -25,7 +25,8 @@ class TaskDataset(Dataset):
         super().__init__()
         self.config = config
         self.data = {
-            'traj_data': [],
+            'obs_data': [],
+            'act_data': [],
             'traj_task': [],
             'traj_mask': [],
             'traj_aver': [],
@@ -34,38 +35,29 @@ class TaskDataset(Dataset):
         self.data_min = 0
         self.data_task = 0
         self.normalization = 0
-        self.obs_normalization = 0
-        self.batch_size = 32
-        self.tuple_size = 50
+        self.normalizer = 0
+        self.batch_size = config['train_cfgs']['batch_size']
+        self.tuple_size = 20
         self.dataset_size = 0
 
-        self.load(file='../datasets/walker2d_full_replay-v2.npz')
+        dataset_file_path = os.path.join('../datasets', config['train_cfgs']['dataset'])
+        self.load(file=dataset_file_path)
 
     def load(self, file):
-
 
         raw_data = read_file(file)
         self.raw_data = raw_data
 
         obs_data = []
-        for env_name in list(raw_data.keys()):
-            obs_data.append(raw_data[env_name]['obs'])
-        obs_data = np.concatenate(obs_data, 0)
-        self.obs_normalization = GaussianNormalizer(
-            torch.from_numpy(obs_data.reshape(-1, obs_data.shape[-1])).to(torch.float32))
-
-        traj_data = []
+        act_data = []
         traj_aver = []
         traj_task = []
         traj_mask = []
         env_num = len(list(raw_data.keys()))
 
         for env_index, env_name in enumerate(list(raw_data.keys())):
-            traj_data.append(np.concatenate(
-                [raw_data[env_name]['obs'],
-                 raw_data[env_name]['next_obs'],
-                 raw_data[env_name]['action'], ], -1
-            ))
+            obs_data.append(raw_data[env_name]['obs'])
+            act_data.append(raw_data[env_name]['action'])
             traj_aver.append(raw_data[env_name]['info']['ave_reward'])
             traj_mask.append(raw_data[env_name]['traj_mask'])
             env_traj_num = len(raw_data[env_name]['info']['ave_reward'])
@@ -76,22 +68,25 @@ class TaskDataset(Dataset):
                 task_one_hot[:, env_index] = 1
             traj_task.append(task_one_hot)
 
-        traj_data = np.concatenate(traj_data, 0)
+        obs_data = np.concatenate(obs_data, 0)
+        act_data = np.concatenate(act_data, 0)
         traj_aver = np.concatenate(traj_aver, 0)
         traj_mask = np.concatenate(traj_mask, 0)
         traj_task = np.concatenate(traj_task, 0)
 
         sort_index = np.argsort(traj_aver)
-        traj_data = traj_data[sort_index]
+        obs_data = obs_data[sort_index]
+        act_data = act_data[sort_index]
         traj_aver = traj_aver[sort_index]
         traj_mask = traj_mask[sort_index]
         traj_task = traj_task[sort_index]
 
-        traj_data = torch.from_numpy(traj_data).to(torch.float32)
-        self.normalization = GaussianNormalizer(traj_data)
-        traj_data = self.normalization.normalize(traj_data)
+        obs_data = torch.from_numpy(obs_data).to(torch.float32)
+        self.normalizer = GaussianNormalizer(obs_data.view(-1, obs_data.shape[-1]))
+        obs_data = self.normalizer.normalize(obs_data)
 
-        self.data['traj_data'] = traj_data
+        self.data['obs_data'] = obs_data
+        self.data['act_data'] = torch.from_numpy(act_data).to(torch.float32)
         self.data['traj_aver'] = torch.from_numpy(traj_aver).to(torch.float32)
         self.data['traj_mask'] = torch.from_numpy(traj_mask).to(torch.float32)
         self.data['traj_task'] = torch.from_numpy(traj_task).to(torch.float32)
@@ -104,8 +99,8 @@ class TaskDataset(Dataset):
         for end in sample_end:
             sample_index.append(torch.randint(low=0, high=end, size=(self.tuple_size,)))
         sample_index = torch.stack(sample_index, dim=0)
-        traj_max = self.data['traj_data'][sample_end]
-        traj_min = self.data['traj_data'][sample_index]
+        traj_max = self.data['obs_data'][sample_end]
+        traj_min = self.data['obs_data'][sample_index]
         shape = traj_min.shape
         traj_min = traj_min.view(-1, shape[-2], shape[-1])
 
@@ -116,6 +111,22 @@ class TaskDataset(Dataset):
 
         traj_task = self.data['traj_task'][sample_end]
         return traj_max, traj_min, traj_max_mask, traj_min_mask, traj_task
+
+    def diffuser_training_sample(self):
+
+        traj_indices = torch.randint(low=0, high=self.dataset_size, size=(self.batch_size,))
+        traj_act = self.data['act_data'][traj_indices]
+        traj_obs = self.data['obs_data'][traj_indices]
+        batch_trajectories = torch.cat((traj_act, traj_obs), dim=-1)
+        batch_trajectories = batch_trajectories.to(device=torch.device(self.config['train_cfgs']['device']))
+        # batch_returns = batch_returns.to(device=self._device)
+        # for key, value in batch_conditions.items():
+        #     batch_conditions[key] = batch_conditions[key].to(device=self._device)
+
+        # sample_batch = {}
+        # sample_batch['trajectories'] = batch_trajectories
+
+        return batch_trajectories
 
 
 if __name__ == '__main__':

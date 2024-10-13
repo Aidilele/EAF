@@ -6,7 +6,7 @@ from metaworld.policies import SawyerPegInsertionSideV2Policy as SawyerPegInsert
 import pickle
 
 
-def generator(seed=0, traj_length=100, repeat_num=1, scale=.0, dataset_type="MT10"):
+def generator_mt_dataset(seed=0, traj_length=100, repeat_num=1, scale=.0, dataset_type="MT10"):
     np.set_printoptions(suppress=True)
     np.random.seed(seed)
     ml = eval("metaworld." + dataset_type)()
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     repeat_num = 1
     scale = 0
     dataset_type = 'MT10'
-    raw_data = generator(seed=seed, traj_length=traj_length, repeat_num=repeat_num, scale=scale,
+    raw_data = generator_mt_dataset(seed=seed, traj_length=traj_length, repeat_num=repeat_num, scale=scale,
                          dataset_type=dataset_type)
     file_name = save_path + dataset_type + "_rn" + str(repeat_num) + '_sc' + str(scale) + '.pkl'
     with open(file_name, 'wb') as file:
