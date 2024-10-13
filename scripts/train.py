@@ -4,11 +4,11 @@ from utils.builder import build_diffuser_trainer, build_config, build_condition_
 def train_diffuser():
     config = build_config()
     trainer = build_diffuser_trainer(config)
-    try:
-        trainer.train()
-    except:
-        trainer.save()
-        assert False, 'Exception! Latest model state dict saved!'
+    # try:
+    trainer.train()
+    # except:
+    #     trainer.save()
+    #     assert False, 'Exception! Latest model state dict saved!'
 
 def train_condition_model():
     config = build_config()

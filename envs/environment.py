@@ -2,6 +2,12 @@ import gym
 import numpy as np
 
 
+# class TestEnv:
+#     def __init__(self):
+#         self.observation_space = np.zeros(17)
+#         self.action_space = np.zeros(6)
+
+
 class ParallelEnv(gym.Env):
 
     def __init__(self, env_name, parallel_num):
@@ -9,7 +15,8 @@ class ParallelEnv(gym.Env):
         self.env_list = []
         self.parallel_num = parallel_num
         for i in range(parallel_num):
-            self.env_list.append(gym.make(env_name))
+            env = gym.make(env_name)
+            self.env_list.append(env)
         self.observation_space = self.env_list[0].observation_space
         self.action_space = self.env_list[0].action_space
         self.obs_dim = self.observation_space.shape[0]

@@ -28,7 +28,7 @@ class ConditionModel(nn.Module):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
         self.optim_scheduler = StepLR(self.optimizer, step_size=50, gamma=0.9)
 
-    def train(self, ep_num=2000):
+    def training(self, ep_num=2000):
         obs_dim = self.config['environment'].observation_space.shape[0]
         for ep_index in range(ep_num):
             batch_sample = self.dataset.sample()

@@ -16,11 +16,20 @@ train_cfgs:
   batch_size: 64
 
 
-algo_cfgs:
+diffusion_cfgs:
+  timestep_respacing: ''
+  noise_schedule: linear
+  use_kl: False
+  sigma_small: False
+  predict_xstart: False
+  learn_sigma: False
+  rescale_learned_sigmas: False
+  cfg_scale: 1.5
+  diffusion_steps: 1000
   gamma: 0.99
   obs_history_length: 1
   horizon: 100
-  n_diffusion_steps: 50
+  n_diffusion_steps: 200
   noise_model: "DiT"
 
 logger_cfgs:
@@ -36,14 +45,14 @@ model_cfgs:
     n_heads: 4
     layers: 2
 
-  diffuser_model:
-    train_only_inv: False
-    loss_weights: None
-    loss_discount: 1
-    predict_epsilon: True
-    hidden_dim: 128
-    clip_denoised: True
-    condition_guidance_w: 1.0
+#  diffuser_model:
+#    train_only_inv: False
+#    loss_weights: None
+#    loss_discount: 1
+#    predict_epsilon: True
+#    hidden_dim: 128
+#    clip_denoised: True
+#    condition_guidance_w: 1.0
 
   temporalU_model:
     dim_mults: [ 1, 4, 8 ]
@@ -52,11 +61,14 @@ model_cfgs:
     condition_dropout: 0.25
 
   DiT:
-    hidden_dim: 128
+    hidden_dim: 256
     cond_dim: 16
     n_heads: 4
-    depth: 8
+    depth: 4
     dropout: 0.0
+    mlp_ratio: 4.0
+    class_dropout: 0.1
+    learn_sigma: False
 
 dataset_cfgs:
   use_padding: True
@@ -64,7 +76,8 @@ dataset_cfgs:
   reward_normalize: False
 
 evaluate_cfgs:
-  multi_step_pred: 10
+  evaluate_steps: 100
+  multi_step_pred: 99
   evaluate_model_index: 0
 
 

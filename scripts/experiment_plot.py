@@ -10,7 +10,7 @@ from utils.builder import build_condition_model, build_config
 def traj_emb_t_sne():
     config = build_config()
     model = build_condition_model(config)
-    model.load(1500)
+    model.load(1999)
     # traj_data
     X = model.dataset.data['obs_data']
     X_mask = model.dataset.data['traj_mask']
@@ -38,7 +38,7 @@ def traj_emb_t_sne():
 
     plt.figure(figsize=(8, 6))
     draw_start = 0
-    draw_length = 10000
+    draw_length = 1800
     scatter = plt.scatter(X_embedded[draw_start:draw_start + draw_length, 0],
                           X_embedded[draw_start:draw_start + draw_length, 1],
                           c=Y[draw_start:draw_start + draw_length],
