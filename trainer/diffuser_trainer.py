@@ -187,7 +187,7 @@ class DiffuserTrainer:
         parallel_num = env.parallel_num
         horizon = self.config['diffusion_cfgs']['horizon']
         env.reset()
-        target = torch.zeros(parallel_num)
+        target = torch.zeros(parallel_num).to(self.device)
         for i in range(parallel_num):
             target[i] = i + 1 / parallel_num
         y = self.condition_model.sample(target)
