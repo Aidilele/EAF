@@ -7,6 +7,8 @@
 """
 A minimal training script for DiT using PyTorch DDP.
 """
+from distutils.core import setup_keywords
+
 import torch
 
 # the first flag below was False when we tested this script but True makes A100 training a lot faster:
@@ -18,9 +20,10 @@ from PIL import Image
 from copy import deepcopy
 from time import time
 import logging
+import os
+import cv2
 
 
-# import os
 # from module.models import DiT_models
 # from model.diffusion import create_diffusion
 
@@ -33,31 +36,6 @@ def requires_grad(model, flag=True):
     """
     for p in model.parameters():
         p.requires_grad = flag
-
-
-# def cleanup():
-#     """
-#     End DDP training.
-#     """
-#     dist.destroy_process_group()
-
-
-def create_logger():
-    """
-    Create a logger that writes to a log file and stdout.
-    """
-    # if dist.get_rank() == 0:  # real logger
-    #     logging.basicConfig(
-    #         level=logging.INFO,
-    #         format='[\033[34m%(asctime)s\033[0m] %(message)s',
-    #         datefmt='%Y-%m-%d %H:%M:%S',
-    #         handlers=[logging.StreamHandler(), logging.FileHandler(f"{logging_dir}/log.txt")]
-    #     )
-    #     logger = logging.getLogger(__name__)
-    # else:  # dummy logger (does nothing)
-    logger = logging.getLogger(__name__)
-    logger.addHandler(logging.NullHandler())
-    return logger
 
 
 def center_crop_arr(pil_image, image_size):
@@ -84,20 +62,14 @@ def center_crop_arr(pil_image, image_size):
 #################################################################################
 #                                  Training Loop                                #
 #################################################################################
-class DiffuserTrainer:
+class DiffuserPolicy:
     def __init__(self, config):
         self.config = config
-        # Setup DDP:
-        # dist.init_process_group("nccl")
-        # assert args.global_batch_size % dist.get_world_size() == 0, f"Batch size must be divisible by world size."
-        # rank = dist.get_rank()
-        # device = rank % torch.cuda.device_count()
-        # seed = args.global_seed * dist.get_world_size() + rank
         self.seed = config['seed']
         self.device = torch.device(config['train_cfgs']['device'] if torch.cuda.is_available() else 'cpu')
         self.epochs = config['train_cfgs']['total_episode']
         self.save_freq = config['train_cfgs']['save_model_freq']
-        self.checkpoint_dir = config['logger_cfgs']['log_dir']
+        self.bucket = config['logger_cfgs']['log_dir']
         self.condition_model = config['condition_model'].to(self.device)
         self.condition_model.eval()
         self.model = config['denoise_model'].to(self.device)
@@ -110,7 +82,9 @@ class DiffuserTrainer:
         self.model.train()  # important! This enables embedding dropout for classifier-free guidance
         self.ema.eval()
         self.diffusion = config['diffusion']
-        self.logger=config['logger']
+        self.logger = config['logger']
+        self.load()
+        self.loader.generate_traj_emb()
 
     @torch.no_grad()
     def update_ema(self, decay=0.9999):
@@ -128,22 +102,26 @@ class DiffuserTrainer:
         torch.manual_seed(self.seed)
         torch.cuda.set_device(self.device)
 
-        logger = create_logger()
-        logger.info(f"DiT Parameters: {sum(p.numel() for p in self.model.parameters()):,}")
+        # logger = create_logger()
+        # logger.info(f"DiT Parameters: {sum(p.numel() for p in self.model.parameters()):,}")
 
         log_steps = 0
         running_loss = 0
         start_time = time()
 
-        logger.info(f"Training for {self.epochs} epochs...")
-        for train_step in range(self.epochs):
-            logger.info(f"Beginning epoch {train_step}...")
-            x = self.loader.diffuser_training_sample()
-            y = self.condition_model(x[:, :, 6:])
+        # logger.info(f"Training for {self.epochs} epochs...")
+        for epoch in range(self.epochs):
+            # logger.info(f"Beginning epoch {train_step}...")
+            batch_samples = self.loader.diffuser_training_sample()
+            x = batch_samples['traj_data']
+            x = x.unsqueeze(1)
+            y = batch_samples['traj_emb']
+            obs = batch_samples['init_obs']
             t = torch.randint(0, self.diffusion.num_timesteps, (x.shape[0],), device=self.device)
-            model_kwargs = dict(y=y)
+            model_kwargs = dict(y=y, obs=obs)
             loss_dict = self.diffusion.training_losses(self.model, x, t, model_kwargs)
             loss = loss_dict["loss"].mean()
+            self.logger.write('loss/diffuser', loss, epoch)
             self.opt.zero_grad()
             loss.backward()
             self.opt.step()
@@ -152,7 +130,7 @@ class DiffuserTrainer:
             # Log loss values:
             running_loss += loss.item()
             log_steps += 1
-            if train_step % self.save_freq == 0:
+            if epoch % self.save_freq == 0:
                 # Measure training speed:
                 torch.cuda.synchronize()
                 end_time = time()
@@ -160,51 +138,99 @@ class DiffuserTrainer:
                 # Reduce loss history over all processes:
                 avg_loss = torch.tensor(running_loss / log_steps, device=self.device)
                 avg_loss = avg_loss.item()
-                logger.info(
-                    f"(step={train_step:07d}) Train Loss: {avg_loss:.4f}, Train Steps/Sec: {steps_per_sec:.2f}")
+                # logger.info(
+                #     f"(step={train_step:07d}) Train Loss: {avg_loss:.4f}, Train Steps/Sec: {steps_per_sec:.2f}")
                 # Reset monitoring variables:
                 running_loss = 0
                 log_steps = 0
                 start_time = time()
 
             # Save DiT checkpoint:
-            if train_step % self.save_freq == 0 and train_step > 0:
-                self.save(train_steps=train_step)
-                checkpoint_path = f"{self.checkpoint_dir}/{train_step:05d}.pt"
+            if epoch % self.save_freq == 0 and epoch > 0:
+                self.save(train_steps=epoch)
+                # checkpoint_path = f"{checkpoint_dir}/{train_step:05d}.pt"
                 # torch.save(checkpoint, checkpoint_path)
-                logger.info(f"Saved checkpoint to {checkpoint_path}")
-                self.evaluate()
+                # logger.info(f"Saved checkpoint to {checkpoint_path}")
+                ep_reward = self.evaluate()
+                mean = ep_reward.mean()
+                std = ep_reward.std()
+                print(f'mean: {mean:.2f}, std: {std:.2f}, max: {ep_reward.max():.2f} ,min: {ep_reward.min():.2f}')
+                self.logger.write('ave_reward', ep_reward.mean(), epoch)
+                self.logger.write('std_reward', ep_reward.std(), epoch)
 
         self.model.eval()  # important! This disables randomized embedding dropout
         # do any sampling/FID calculation/etc. with ema (or model) in eval mode ...
-        logger.info("Done!")
+        # logger.info("Done!")
 
-    def evaluate(self):
-        self.model.eval()
-        env = self.config['environment']
-        obs_dim = env.observation_space.shape[0]
-        act_dim = env.action_space.shape[0]
-        parallel_num = env.parallel_num
+    def act(self, obs):
+        obs = torch.from_numpy(obs).to(torch.float32).to(self.device)
+        obs = self.loader.normalizer.normalize(obs)
+        obs_dim = self.config['environment'].observation_space.shape[0]
+        act_dim = self.config['environment'].action_space.shape[0]
+        if self.config['denoise_action']:
+            denoise_dim = act_dim + obs_dim
+        else:
+            denoise_dim = obs_dim
+        parallel_num = self.config['environment'].parallel_num
         horizon = self.config['diffusion_cfgs']['horizon']
-        env.reset()
-        target = torch.zeros(parallel_num).to(self.device)
-        for i in range(parallel_num):
-            target[i] = i + 1 / parallel_num
+        target = 0.95 * torch.ones((parallel_num, 1)).to(self.device)
+        # for i in range(parallel_num):
+        #     target[i] = i + 1 / parallel_num
         y = self.condition_model.sample(target)
-        model_kwargs = dict(y=y, cfg_scale=self.config['diffusion']['cfg_scale'])
-        z = torch.randn(parallel_num, horizon, act_dim + obs_dim, device=self.device)
+        z = torch.randn(parallel_num, horizon, denoise_dim, device=self.device)
+        z = z.unsqueeze(1)
+        model_kwargs = dict(y=y, obs=obs, cfg_scale=self.config['diffusion_cfgs']['cfg_scale'])
         samples = self.diffusion.ddim_sample_loop(
             self.model.forward_with_cfg, z.shape, z, clip_denoised=False, model_kwargs=model_kwargs, progress=True,
             device=self.device
         )
-        samples, _ = samples.chunk(2, dim=0)
-        actions = samples[:, :, :act_dim]
+        samples = samples.squeeze(1)
+        if self.config['denoise_action']:
+            actions = samples[:, :self.config['evaluate_cfgs']['multi_step_pred'], obs_dim:]
+        else:
+            comb_obs = torch.concat((samples[:, :-1, :], samples[:, 1:, :]), dim=-1)
+            actions = self.dynamic_model(comb_obs)
+        actions = self.loader.act_normalizer.unnormalize(actions)
         actions = torch.einsum('nsa->sna', actions).detach().cpu().numpy()
+        return actions
+
+    def evaluate(self, render=False):
+        self.model.eval()
+        env = self.config['environment']
+        parallel_num = env.parallel_num
         ep_reward = np.zeros(parallel_num)
-        for step in range(self.config['evaluate_cfgs']['evaluate_steps']):
-            next_obs, reward, done, _ = env.step(actions[step])
-            ep_reward += reward
+        obs, terminal = env.reset()
+        step = 0
+        while (step < self.config['evaluate_cfgs']['evaluate_steps']) and (not terminal.all()):
+            actions = self.act(obs)
+            for action in actions:
+                next_obs, reward, terminal, _ = env.step(action)
+                ep_reward += reward
+                if render:
+                    env.render()
+                step += 1
+                if terminal.all() or step >= self.config['evaluate_cfgs']['evaluate_steps']:
+                    break
+                obs = next_obs
+        if render:
+            self.render_frames(0, ep_reward)
         self.model.train()
+        return ep_reward
+
+    def render_frames(self, episode, ep_reward):
+        frames = self.config['environment'].frames_cache
+        video_path = os.path.join(self.bucket, 'video')
+        if not os.path.exists(video_path):
+            os.makedirs(video_path)
+        height = frames[0][0].shape[0]
+        width = frames[0][0].shape[1]
+        for i, frame in enumerate(frames):
+            video_name = video_path + '/E' + str(episode) + '_P' + str(i) + '_R' + str(int(ep_reward[i])) + '.mp4'
+            out = cv2.VideoWriter(video_name, cv2.VideoWriter_fourcc(*'mp4v'), 120, (height, width))
+            for single_frame in frame:
+                out.write(single_frame)
+            out.release()
+        print('ok')
 
     def save(self, train_steps=0):
         checkpoint = {
@@ -213,5 +239,23 @@ class DiffuserTrainer:
             "opt": self.opt.state_dict(),
             # "args": args
         }
-        checkpoint_path = f"{self.checkpoint_dir}/{train_steps:05d}.pt"
+        checkpoint_dir = os.path.join(self.bucket, 'pretrain')
+        if not os.path.exists(checkpoint_dir):
+            os.makedirs(checkpoint_dir)
+        checkpoint_path = f"{checkpoint_dir}/{train_steps:05d}.pt"
         torch.save(checkpoint, checkpoint_path)
+
+    def load(self):
+        train_steps = self.config['evaluate_cfgs']['denoise_model_index']
+        checkpoint_dir = os.path.join(self.bucket, 'pretrain')
+        checkpoint_path = f"{checkpoint_dir}/{train_steps:05d}.pt"
+        if os.path.exists(checkpoint_path):
+            checkpoint = torch.load(checkpoint_path)
+            self.model.load_state_dict(checkpoint['model'])
+            self.ema.load_state_dict(checkpoint['ema'])
+            self.opt.load_state_dict(checkpoint['opt'])
+        self.condition_model.load(self.config['evaluate_cfgs']['condition_model_index'])
+        if not self.config['denoise_action']:
+            self.dynamic_model = self.config['dynamic_model'].to(self.device)
+            self.dynamic_model.load(self.config['evaluate_cfgs']['dynamic_model_index'])
+            self.dynamic_model.eval()

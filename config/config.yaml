@@ -3,32 +3,35 @@ branch_name: 'code_book'
 seed: 0
 env_name: Walker2d-v2
 env_parallel_num: 8
+denoise_action: False
 
 train_cfgs:
   device: cuda:0
   total_episode: 1000000
-  dataset: walker2d_full_replay-v2.npz
+  dataset: MT10_rn1_sc0.5.pkl
   evaluate_episode: 0
   evaluate_freq: 0
   save_model_freq: 1000
   lr: 1e-5
   gradient_accumulate_every: 2
-  batch_size: 64
+  batch_size: 256
 
 
 diffusion_cfgs:
-  timestep_respacing: ''
+  timestep_respacing: ddim20
   noise_schedule: linear
-  use_kl: False
-  sigma_small: False
-  predict_xstart: False
-  learn_sigma: False
-  rescale_learned_sigmas: False
-  cfg_scale: 1.5
-  diffusion_steps: 1000
+  predict_xstart: False # Training target mean type: x_start or noise.
+  use_kl: False # Decide which loss function to training. (KL or MSE)
+  rescale_learned_sigmas: True # Whether rescale the learned sigma, only available when using learning variance
+  sigma_small: True # Using small or large fixed variance
+  learn_sigma: False # Whether training sigma/variance
+
+
+  cfg_scale: 1.0
+  diffusion_steps: 200
   gamma: 0.99
   obs_history_length: 1
-  horizon: 100
+  horizon: 32
   n_diffusion_steps: 200
   noise_model: "DiT"
 
@@ -45,15 +48,6 @@ model_cfgs:
     n_heads: 4
     layers: 2
 
-#  diffuser_model:
-#    train_only_inv: False
-#    loss_weights: None
-#    loss_discount: 1
-#    predict_epsilon: True
-#    hidden_dim: 128
-#    clip_denoised: True
-#    condition_guidance_w: 1.0
-
   temporalU_model:
     dim_mults: [ 1, 4, 8 ]
     calc_energy: False
@@ -61,14 +55,13 @@ model_cfgs:
     condition_dropout: 0.25
 
   DiT:
-    hidden_dim: 256
+    hidden_dim: 128
     cond_dim: 16
     n_heads: 4
     depth: 4
     dropout: 0.0
-    mlp_ratio: 4.0
+    mlp_ratio: 2.0
     class_dropout: 0.1
-    learn_sigma: False
 
 dataset_cfgs:
   use_padding: True
@@ -76,9 +69,12 @@ dataset_cfgs:
   reward_normalize: False
 
 evaluate_cfgs:
-  evaluate_steps: 100
-  multi_step_pred: 99
-  evaluate_model_index: 0
+  evaluate_steps: 1000
+  multi_step_pred: 5
+  denoise_model_index: 0
+  condition_model_index: 1999
+  dynamic_model_index: 49999
+
 
 
 

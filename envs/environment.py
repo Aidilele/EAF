@@ -1,12 +1,7 @@
 import gym
 import numpy as np
-
-
-# class TestEnv:
-#     def __init__(self):
-#         self.observation_space = np.zeros(17)
-#         self.action_space = np.zeros(6)
-
+from mujoco_py import GlfwContext
+GlfwContext(offscreen=True)
 
 class ParallelEnv(gym.Env):
 
@@ -22,13 +17,16 @@ class ParallelEnv(gym.Env):
         self.obs_dim = self.observation_space.shape[0]
         self.action_dim = self.action_space.shape[0]
         self.terminal_mask = np.zeros(self.parallel_num, dtype=np.bool8)
+        self.frames_cache = []
 
     def reset(self, **kwargs):
         results = []
+
         self.terminal_mask = np.zeros(self.parallel_num, dtype=np.bool8)
         for env in self.env_list:
             result = env.reset(**kwargs)
             results.append(result)
+            self.frames_cache.append([])
         return np.stack(results), np.zeros(self.parallel_num)
 
     def sample_random_action(self):
@@ -42,11 +40,14 @@ class ParallelEnv(gym.Env):
         rewards = np.zeros(self.parallel_num)
         dones = np.zeros(self.parallel_num)
         infos = []
-        for i in range(len(self.env_list)):
-            observation, reward, done, info = self.env_list[i].step(action[i])
+        for i, env in enumerate(self.env_list):
+            observation, reward, done, info = env.step(action[i])
             if not done:
-                observations[i] = observation
+
                 rewards[i] = reward
+            else:
+                self.terminal_mask[i] = True
+            observations[i] = observation
             dones[i] = done
             infos.append(infos)
 
@@ -57,11 +58,17 @@ class ParallelEnv(gym.Env):
             infos
         )
 
-    def render(self, mode='human'):
-        results = []
-        if mode == 'human':
-            self.env_list[0].render(mode)
-        else:
-            for env in self.env_list:
-                results.append(env.render(mode=mode))
-        return results
+    def render(self,mode='rgb_array'):
+        assert mode == 'rgb_array', r'Only support "rgb_array" render mode'
+        for i, env in enumerate(self.env_list):
+            if not self.terminal_mask[i]:
+                self.frames_cache[i].append(env.render(mode=mode))
+
+        # if mode == 'human':
+        #     for env in self.env_list:
+        #         env.render(mode)
+        # elif mode == 'rgb_array':
+        #     for i, env in enumerate(self.env_list):
+        #         self.frames_cache[i].append(env.render(mode=mode))
+        # else:
+        #     raise NotImplementedError('Unsupported render mode')

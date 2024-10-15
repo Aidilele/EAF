@@ -28,10 +28,10 @@ class ConditionModel(nn.Module):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
         self.optim_scheduler = StepLR(self.optimizer, step_size=50, gamma=0.9)
 
-    def training(self, ep_num=2000):
+    def train_model(self, ep_num=2000):
         obs_dim = self.config['environment'].observation_space.shape[0]
         for ep_index in range(ep_num):
-            batch_sample = self.dataset.sample()
+            batch_sample = self.dataset.condition_model_training_sample()
             traj_max = batch_sample[0].to(self.device)
             traj_min = batch_sample[1].to(self.device)
             traj_max_mask = batch_sample[2].to(self.device)
@@ -84,8 +84,8 @@ class ConditionModel(nn.Module):
         self.save(ep_index)
         return 0
 
-    def forward(self, x):
-        mean, log_var = self.trajectory_embedding(x)
+    def forward(self, x,traj_mask=None):
+        mean, log_var = self.trajectory_embedding(x,traj_mask)
         return mean
 
     def sample(self, x):
