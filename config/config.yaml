@@ -8,7 +8,7 @@ denoise_action: False
 train_cfgs:
   device: cuda:0
   total_episode: 1000000
-  dataset: MT10_rn1_sc0.5.pkl
+  dataset: MT10.pkl
   evaluate_episode: 0
   evaluate_freq: 0
   save_model_freq: 1000
