@@ -2,26 +2,12 @@ from utils.normlization import *
 import numpy as np
 import torch
 import os
-from dataset.load_dataset import read_file,fun
+from dataset.load_dataset import read_file
 
 
-class Dataset:
-
-    def __init__(self):
-        self.data = {}
-        self.raw_data = 0
-
-    def sample(self):
-        return 0
-
-    def load(self, file):
-        return 0
-
-
-class TaskDataset(Dataset):
+class TaskDataset:
 
     def __init__(self, config):
-        super().__init__()
         self.config = config
         self.data = {
             'obs_data': [],
@@ -38,68 +24,11 @@ class TaskDataset(Dataset):
         self.batch_size = config['train_cfgs']['batch_size']
         self.tuple_size = 20
         self.dataset_size = 0
-
         dataset_file_path = os.path.join('../datasets', config['train_cfgs']['dataset'])
         self.load(file=dataset_file_path)
 
     def load(self, file):
-
         raw_data = read_file(file)
-        self.data = raw_data
-
-        obs_data = []
-        act_data = []
-        traj_aver = []
-        traj_task = []
-        traj_mask = []
-        env_num = len(list(raw_data.keys()))
-
-        for env_index, env_name in enumerate(list(raw_data.keys())):
-            obs_data.append(raw_data[env_name]['obs'])
-            act_data.append(raw_data[env_name]['action'])
-            traj_aver.append(raw_data[env_name]['info']['ave_reward'])
-            traj_mask.append(raw_data[env_name]['traj_mask'])
-            env_traj_num = len(raw_data[env_name]['info']['ave_reward'])
-            if 'traj_preference' in raw_data[env_name].keys():
-                task_one_hot = raw_data[env_name]['traj_preference']
-            else:
-                task_one_hot = np.zeros((env_traj_num, env_num))
-                task_one_hot[:, env_index] = 1
-            traj_task.append(task_one_hot)
-
-        obs_data = np.concatenate(obs_data, 0)
-        act_data = np.concatenate(act_data, 0)
-        traj_aver = np.concatenate(traj_aver, 0)
-        traj_mask = np.concatenate(traj_mask, 0)
-        traj_task = np.concatenate(traj_task, 0)
-
-        sort_index = np.argsort(traj_aver)
-        obs_data = obs_data[sort_index]
-        act_data = act_data[sort_index]
-        traj_aver = traj_aver[sort_index]
-        traj_mask = traj_mask[sort_index]
-        traj_task = traj_task[sort_index]
-
-        obs_data = torch.from_numpy(obs_data).to(torch.float32)
-        self.normalizer = GaussianNormalizer(obs_data.view(-1, obs_data.shape[-1]))
-        obs_data = self.normalizer.normalize(obs_data)
-
-        act_data = torch.from_numpy(act_data).to(torch.float32)
-        self.act_normalizer = GaussianNormalizer(act_data.view(-1, act_data.shape[-1]))
-        act_data = self.act_normalizer.normalize(act_data)
-
-        self.data['obs_data'] = obs_data
-        self.data['act_data'] = act_data
-        self.data['traj_aver'] = torch.from_numpy(traj_aver).to(torch.float32)
-        self.data['traj_mask'] = torch.from_numpy(traj_mask).to(torch.float32)
-        self.data['traj_task'] = torch.from_numpy(traj_task).to(torch.float32)
-        self.dataset_size = len(self.data['traj_aver'])
-        self.traj_length = self.data['traj_mask'].sum(-1)
-        self.traj_max_length = obs_data.shape[1]
-        self.horizon = self.config['diffusion_cfgs']['horizon']
-
-    def load2(self, file):
-        raw_data = fun(file)
         self.data = raw_data['raw_data']
         self.obs_normalizer = raw_data['obs_normalizer']
         self.act_normalizer = raw_data['act_normalizer']

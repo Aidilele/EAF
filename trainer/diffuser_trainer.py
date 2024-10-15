@@ -164,7 +164,7 @@ class DiffuserPolicy:
 
     def act(self, obs):
         obs = torch.from_numpy(obs).to(torch.float32).to(self.device)
-        obs = self.loader.normalizer.normalize(obs)
+        obs = self.loader.obs_normalizer.normalize(obs)
         obs_dim = self.config['environment'].observation_space.shape[0]
         act_dim = self.config['environment'].action_space.shape[0]
         if self.config['denoise_action']:

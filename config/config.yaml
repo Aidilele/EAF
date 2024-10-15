@@ -3,12 +3,12 @@ branch_name: 'code_book'
 seed: 0
 env_name: Walker2d-v2
 env_parallel_num: 8
-denoise_action: False
+denoise_action: True
 
 train_cfgs:
   device: cuda:0
   total_episode: 1000000
-  dataset: MT10.pkl
+  dataset: walker2d_full_replay-v2.npz
   evaluate_episode: 0
   evaluate_freq: 0
   save_model_freq: 1000
