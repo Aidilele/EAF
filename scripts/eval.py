@@ -9,5 +9,5 @@ def eval_diffuser(path):
 
 
 if __name__ == '__main__':
-    path = r'C:\Project\EmboddieAgentFramework\runs\2024-10-14-15-17-44'
+    path = r'C:\Project\EmboddieAgentFramework\runs\2024-10-15-18-20-22'
     eval_diffuser(path)

@@ -5,7 +5,8 @@ import os
 from model.dynamic_model import DynamicModel
 from utils.read_files import load_yaml
 from dataset.dataset_class import TaskDataset
-from envs.environment import ParallelEnv
+from envs.mujoco_env import ParallelMujocoEnv
+from envs.meteworld_env import MetaworldEnv
 from utils.logger import Logger
 from trainer.diffuser_trainer import DiffuserPolicy
 from model.condition_model import ConditionModel
@@ -40,7 +41,10 @@ def build_config(config_path=None):
 def build_environment(config):
     env_name = config['env_name']
     parallel_num = config['env_parallel_num']
-    env = ParallelEnv(env_name=env_name, parallel_num=parallel_num)
+    if ('MT' or 'mt') in env_name:
+        env = MetaworldEnv(env_name=env_name)
+    else:
+        env = ParallelMujocoEnv(env_name=env_name, parallel_num=parallel_num)
     config['environment'] = env
     return env
 
@@ -90,9 +94,9 @@ def build_denoise_module(config):
         )
     elif config['diffusion_cfgs']['noise_model'] == 'DiT':
         if config['denoise_action']:
-            denoise_dim=obs_dim + act_dim
+            denoise_dim = obs_dim + act_dim
         else:
-            denoise_dim=obs_dim
+            denoise_dim = obs_dim
         input_size = (config['diffusion_cfgs']['horizon'], denoise_dim)
         patch_size = (1, denoise_dim)
         denoise_model = DiT(

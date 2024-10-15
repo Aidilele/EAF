@@ -1,5 +1,4 @@
 import torch
-from dm_control.composer import observable
 from torch import nn
 from torch.optim.lr_scheduler import CosineAnnealingLR, StepLR
 import torch.nn.functional as F

@@ -130,21 +130,6 @@ class DiffuserPolicy:
             # Log loss values:
             running_loss += loss.item()
             log_steps += 1
-            if epoch % self.save_freq == 0:
-                # Measure training speed:
-                torch.cuda.synchronize()
-                end_time = time()
-                steps_per_sec = log_steps / (end_time - start_time)
-                # Reduce loss history over all processes:
-                avg_loss = torch.tensor(running_loss / log_steps, device=self.device)
-                avg_loss = avg_loss.item()
-                # logger.info(
-                #     f"(step={train_step:07d}) Train Loss: {avg_loss:.4f}, Train Steps/Sec: {steps_per_sec:.2f}")
-                # Reset monitoring variables:
-                running_loss = 0
-                log_steps = 0
-                start_time = time()
-
             # Save DiT checkpoint:
             if epoch % self.save_freq == 0 and epoch > 0:
                 self.save(train_steps=epoch)
@@ -174,6 +159,7 @@ class DiffuserPolicy:
         parallel_num = self.config['environment'].parallel_num
         horizon = self.config['diffusion_cfgs']['horizon']
         target = 0.95 * torch.ones((parallel_num, 1)).to(self.device)
+        target = torch.eye(parallel_num).to(self.device)
         # for i in range(parallel_num):
         #     target[i] = i + 1 / parallel_num
         y = self.condition_model.sample(target)
@@ -188,8 +174,11 @@ class DiffuserPolicy:
         if self.config['denoise_action']:
             actions = samples[:, :self.config['evaluate_cfgs']['multi_step_pred'], obs_dim:]
         else:
-            comb_obs = torch.concat((samples[:, :-1, :], samples[:, 1:, :]), dim=-1)
+            comb_obs = torch.concat((
+                samples[:, :self.config['evaluate_cfgs']['multi_step_pred'], :],
+                samples[:, 1:self.config['evaluate_cfgs']['multi_step_pred'] + 1, :]), dim=-1)
             actions = self.dynamic_model(comb_obs)
+
         actions = self.loader.act_normalizer.unnormalize(actions)
         actions = torch.einsum('nsa->sna', actions).detach().cpu().numpy()
         return actions

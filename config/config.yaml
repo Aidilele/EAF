@@ -1,20 +1,19 @@
 branch_name: 'code_book'
 
 seed: 0
-env_name: Walker2d-v2
+env_name: MT10
 env_parallel_num: 8
 denoise_action: True
 
 train_cfgs:
   device: cuda:0
   total_episode: 1000000
-  dataset: walker2d_full_replay-v2.npz
+  dataset: MT10_rn5_sc0.5.pkl
   evaluate_episode: 0
   evaluate_freq: 0
   save_model_freq: 1000
-  lr: 1e-5
-  gradient_accumulate_every: 2
-  batch_size: 256
+  lr: 5e-4
+  batch_size: 128
 
 
 diffusion_cfgs:
@@ -26,13 +25,9 @@ diffusion_cfgs:
   sigma_small: True # Using small or large fixed variance
   learn_sigma: False # Whether training sigma/variance
 
-
   cfg_scale: 1.0
   diffusion_steps: 200
-  gamma: 0.99
-  obs_history_length: 1
   horizon: 32
-  n_diffusion_steps: 200
   noise_model: "DiT"
 
 logger_cfgs:
@@ -42,7 +37,7 @@ logger_cfgs:
 model_cfgs:
   returns_condition: True
   condition_model:
-    preference_dim: 1
+    preference_dim: 10
     hidden_dim: 128
     output_dim: 16
     n_heads: 4
@@ -55,7 +50,7 @@ model_cfgs:
     condition_dropout: 0.25
 
   DiT:
-    hidden_dim: 128
+    hidden_dim: 256
     cond_dim: 16
     n_heads: 4
     depth: 4
@@ -69,7 +64,7 @@ dataset_cfgs:
   reward_normalize: False
 
 evaluate_cfgs:
-  evaluate_steps: 1000
+  evaluate_steps: 200
   multi_step_pred: 5
   denoise_model_index: 0
   condition_model_index: 1999

@@ -37,8 +37,8 @@ class ConditionModel(nn.Module):
             traj_max_mask = batch_sample[2].to(self.device)
             traj_min_mask = batch_sample[3].to(self.device)
             task = batch_sample[-1].to(self.device)
-            obs_traj_max = traj_max[:, :, :obs_dim]
-            obs_traj_min = traj_min[:, :, :obs_dim]
+            obs_traj_max = traj_max[:, :, :]
+            obs_traj_min = traj_min[:, :, :]
 
             u_p, lv_p = self.trajectory_embedding(obs_traj_max, traj_max_mask)
             u_m, lv_m = self.trajectory_embedding(obs_traj_min, traj_min_mask)

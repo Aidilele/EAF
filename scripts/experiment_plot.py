@@ -13,6 +13,7 @@ def traj_emb_t_sne(path=1999):
     model.load(path)
     # traj_data
     X = model.dataset.data['obs_data']
+    draw_length = X.shape[0]
     X_mask = model.dataset.data['traj_mask']
     # generate traj representation
     X_patch = []
@@ -34,9 +35,10 @@ def traj_emb_t_sne(path=1999):
 
     # generate preference vector
     preference_num = 10
-    preference = torch.ones((preference_num, 1), device=model.device)
+    preference = torch.zeros((preference_num, 10), device=model.device)
     for i in range(preference_num):
-        preference[i, 0] = (i + 1) / preference_num
+        # preference[i, 0] = (i + 1) / preference_num
+        preference[i][i] = 1
 
     # generate traj representation base on given preference vector
     best_X = model.task_embedding(preference)[0].detach().cpu().numpy()
@@ -50,7 +52,6 @@ def traj_emb_t_sne(path=1999):
 
     plt.figure(figsize=(8, 6))
     draw_start = 0
-    draw_length = 1800
     scatter = plt.scatter(X_embedded[draw_start:draw_start + draw_length, 0],
                           X_embedded[draw_start:draw_start + draw_length, 1],
                           c=Y[draw_start:draw_start + draw_length],

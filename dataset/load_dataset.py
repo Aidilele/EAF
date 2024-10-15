@@ -6,8 +6,6 @@ import torch
 from utils.normlization import *
 
 
-
-
 def read_pickle(file_name):
     with open(file_name, 'rb') as f:
         raw_data = pickle.load(f)
@@ -32,6 +30,7 @@ def read_pickle(file_name):
     act_data = np.concatenate(act_data, 0)
     traj_aver = np.concatenate(traj_aver, 0)
     traj_mask = np.concatenate(traj_mask, 0)
+    traj_mask[:, -1] = 0
     traj_task = np.concatenate(traj_task, 0)
 
     obs_data = torch.from_numpy(obs_data).to(torch.float32)
@@ -54,6 +53,7 @@ def read_pickle(file_name):
         'raw_data': data,
         'obs_normalizer': obs_normalizer,
         'act_normalizer': act_normalizer}
+
 
 def read_npz(file_path):
     data = np.load(file_path)
@@ -90,6 +90,7 @@ def read_npz(file_path):
         start_index = end_index + 1
 
     traj_mask = 1 - fixed_data['done']
+    traj_mask[:, -1] = 0
     ave_reward = fixed_data['reward'].mean(-1)
     norm_ave_reward = (ave_reward - ave_reward.min()) / (ave_reward.max() - ave_reward.min())
     sort_index = torch.argsort(norm_ave_reward)
@@ -104,6 +105,7 @@ def read_npz(file_path):
         'obs_normalizer': obs_normalizer,
         'act_normalizer': act_normalizer}
 
+
 def read_file(file_name):
     file_extension = file_name.split('.')[-1]
     if file_extension == 'pkl':
@@ -113,7 +115,6 @@ def read_file(file_name):
     else:
         assert False, 'Unsupported file type'
     return data
-
 
 
 if __name__ == "__main__":

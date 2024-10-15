@@ -16,14 +16,8 @@ class TaskDataset:
             'traj_mask': [],
             'traj_aver': [],
         }
-        self.data_max = 0
-        self.data_min = 0
-        self.data_task = 0
-        self.normalization = 0
-        self.normalizer = 0
         self.batch_size = config['train_cfgs']['batch_size']
-        self.tuple_size = 20
-        self.dataset_size = 0
+        self.tuple_size = 5
         dataset_file_path = os.path.join('../datasets', config['train_cfgs']['dataset'])
         self.load(file=dataset_file_path)
 
